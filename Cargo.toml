@@ -1,0 +1,16 @@
+[package]
+name = "async_crawl"
+version = "0.1.0"
+authors = ["andy"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[dependencies.async-std]
+version = "1.6"
+features = ["attributes"]
+
+[dependencies.async-channel]
+version = "1.1"
