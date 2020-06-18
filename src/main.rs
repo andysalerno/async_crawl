@@ -16,18 +16,26 @@
 
 mod crawler;
 
-use crawler::Crawler;
 use async_std::task;
+use crawler::Crawler;
 
 fn main() {
     println!("Hello, world!");
 
     task::block_on(async {
         let (s, r) = async_channel::unbounded();
-        let crawler = Crawler::new(s.clone());
-        crawler.handle_dir("/home/andy".into()).await;
 
-        while let Ok(joiner) = r.recv().await {
+        let s_clone = s.clone();
+
+        s.send(async_std::task::spawn(async move {
+            // let crawler = Crawler::new(matcher, printer, buf_pool);
+            // crawler.handle_file(&dir_child).await;
+            let crawler = Crawler::new(s_clone);
+            crawler.handle_dir("/home/andy".into()).await;
+        }))
+        .await;
+
+        while let Ok(joiner) = r.try_recv() {
             joiner.await;
         }
     });
