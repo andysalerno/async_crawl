@@ -14,22 +14,59 @@
     future_incompatible
 )]
 
-mod crawler;
+mod recursive_crawler;
+mod scaled_crawler;
 
 use async_std::task;
-use crawler::Crawler;
+use recursive_crawler::Crawler;
+use scaled_crawler::Worker;
 
 fn main() {
     println!("Hello, world!");
 
+    run_scaled();
+}
+
+fn run_scaled() {
+    task::block_on(async {
+        let stack = scaled_crawler::make_stack();
+        stack.lock().await.push("/home/andy/".into());
+
+        let worker1 = Worker::new(stack.clone());
+        let worker2 = Worker::new(stack.clone());
+        let worker3 = Worker::new(stack.clone());
+        let worker4 = Worker::new(stack.clone());
+
+        let task1 = task::spawn(async {
+            worker1.run().await;
+        });
+
+        let task2 = task::spawn(async {
+            worker2.run().await;
+        });
+
+        let task3 = task::spawn(async {
+            worker3.run().await;
+        });
+
+        let task4 = task::spawn(async {
+            worker4.run().await;
+        });
+
+        task1.await;
+        task2.await;
+        task3.await;
+        task4.await;
+    });
+}
+
+fn run_recursive() {
     task::block_on(async {
         let (s, r) = async_channel::unbounded();
 
         let s_clone = s.clone();
 
         s.send(async_std::task::spawn(async move {
-            // let crawler = Crawler::new(matcher, printer, buf_pool);
-            // crawler.handle_file(&dir_child).await;
             let crawler = Crawler::new(s_clone);
             crawler.handle_dir("/home/andy".into()).await;
         }))
