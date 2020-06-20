@@ -17,9 +17,11 @@
 mod recursive_crawler;
 mod scaled_crawler;
 
+use async_std::sync::Arc;
 use async_std::task;
 use recursive_crawler::Crawler;
-use scaled_crawler::Worker;
+use scaled_crawler::{DirWork, Worker};
+use std::sync::atomic::AtomicUsize;
 
 fn main() {
     println!("Hello, world!");
@@ -29,13 +31,14 @@ fn main() {
 
 fn run_scaled() {
     task::block_on(async {
+        let idle_count = Arc::new(AtomicUsize::new(0));
         let stack = scaled_crawler::make_stack();
-        stack.lock().await.push("/home/andy/".into());
+        stack.lock().await.push(DirWork::Path("/home/andy/".into()));
 
-        let worker1 = Worker::new(stack.clone());
-        let worker2 = Worker::new(stack.clone());
-        let worker3 = Worker::new(stack.clone());
-        let worker4 = Worker::new(stack.clone());
+        let worker1 = Worker::new(stack.clone(), idle_count.clone());
+        let worker2 = Worker::new(stack.clone(), idle_count.clone());
+        let worker3 = Worker::new(stack.clone(), idle_count.clone());
+        let worker4 = Worker::new(stack.clone(), idle_count.clone());
 
         let task1 = task::spawn(async {
             worker1.run().await;
