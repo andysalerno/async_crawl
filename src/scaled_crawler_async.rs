@@ -74,13 +74,14 @@ impl Worker {
 
             if work.is_none() {
                 let total_idle = if !is_idle {
+                    // We just became idle -- need to update the idlers count.
                     self.idle_count.fetch_add(1, Ordering::SeqCst) + 1
                 } else {
+                    // We were already idle, so let's see what the current count is.
                     self.idle_count.load(Ordering::SeqCst)
                 };
 
                 if total_idle >= 4 {
-                    println!("Everyone's idle.  Stopping.");
                     return;
                 }
 
@@ -91,7 +92,6 @@ impl Worker {
             } else if is_idle {
                 // We were idle, but no longer --
                 // update the global count
-                println!("No longer idle - subbing");
                 self.idle_count.fetch_sub(1, Ordering::SeqCst);
                 is_idle = false;
             }
