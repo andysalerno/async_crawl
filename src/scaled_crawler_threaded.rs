@@ -24,6 +24,13 @@ impl DirWork {
         }
     }
 
+    fn is_file(&self) -> bool {
+        match self {
+            DirWork::Entry(e) => e.metadata().unwrap().is_file(),
+            DirWork::Path(path) => path.is_file(),
+        }
+    }
+
     fn is_symlink(&self) -> bool {
         match self {
             DirWork::Entry(e) => e.file_type().unwrap().is_symlink(),
@@ -41,7 +48,7 @@ impl DirWork {
 
 pub(crate) struct Worker {
     stack: SharedStack<DirWork>,
-    idle_count: Arc<AtomicUsize>,
+    active_count: Arc<AtomicUsize>,
 }
 
 pub(crate) type SharedStack<T> = Arc<Mutex<Vec<T>>>;
@@ -57,38 +64,41 @@ struct WorkerManager {
 
 // TODO: try using all DirEntry instead of Path, may have better perf
 impl Worker {
-    pub fn new(stack: SharedStack<DirWork>, idle_count: Arc<AtomicUsize>) -> Self {
-        Self { stack, idle_count }
+    pub fn new(stack: SharedStack<DirWork>, active_count: Arc<AtomicUsize>) -> Self {
+        Self {
+            stack,
+            active_count,
+        }
     }
 
     pub fn run(self) {
-        let mut is_idle = false;
+        let mut is_active = true;
 
         loop {
             let work = self.stack.lock().unwrap().pop();
 
             if work.is_none() {
-                let total_idle = if !is_idle {
-                    // We just became idle -- need to update the idlers count.
-                    self.idle_count.fetch_add(1, Ordering::SeqCst) + 1
+                let all_idle = if !is_active {
+                    // We're already idle, no need to update the count
+                    self.active_count.load(Ordering::SeqCst) == 0
                 } else {
-                    // We were already idle, so let's see what the current count is.
-                    self.idle_count.load(Ordering::SeqCst)
+                    // We just became idle -- need to update the idlers count.
+                    self.active_count.fetch_sub(1, Ordering::SeqCst) == 1
                 };
 
-                if total_idle >= 4 {
+                is_active = false;
+
+                if all_idle {
                     return;
                 }
 
-                is_idle = true;
-
                 std::thread::yield_now();
                 continue;
-            } else if is_idle {
+            } else if !is_active {
                 // We were idle, but no longer --
                 // update the global count
-                self.idle_count.fetch_sub(1, Ordering::SeqCst);
-                is_idle = false;
+                self.active_count.fetch_add(1, Ordering::SeqCst);
+                is_active = true;
             }
 
             self.run_one(work.unwrap());
@@ -96,15 +106,16 @@ impl Worker {
     }
 
     fn work_handler(work: DirWork) {
-        println!("{}", work.to_path().display());
-        // async_std::task::sleep(std::time::Duration::from_millis(100)).await;
+        // println!("{}", work.to_path().display());
     }
 
     fn run_one(&self, work: DirWork) {
-        let is_symlink = work.is_symlink();
-
-        if is_symlink || !work.is_dir() {
+        if work.is_file() {
             Self::work_handler(work);
+            return;
+        }
+
+        if !work.is_dir() {
             return;
         }
 

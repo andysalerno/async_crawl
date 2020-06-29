@@ -14,7 +14,7 @@
     future_incompatible
 )]
 
-mod recursive_crawler;
+mod recursive_crawler_async;
 mod scaled_crawler_async;
 mod scaled_crawler_threaded;
 
@@ -26,29 +26,30 @@ fn main() {
 }
 
 fn run_scaled_threaded() {
-        use std::sync::Arc;
-        use std::thread;
-        use scaled_crawler_threaded::{DirWork, Worker};
-        use std::sync::atomic::AtomicUsize;
+    use scaled_crawler_threaded::{DirWork, Worker};
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::Arc;
+    use std::thread;
 
-        let idle_count = Arc::new(AtomicUsize::new(0));
-        let stack = scaled_crawler_threaded::make_stack();
-        stack.lock().unwrap().push(DirWork::Path("/home/andy/".into()));
+    let thread_count = 1;
+    let active_count = Arc::new(AtomicUsize::new(thread_count));
+    let stack = scaled_crawler_threaded::make_stack();
+    stack
+        .lock()
+        .unwrap()
+        .push(DirWork::Path("/home/andy/".into()));
 
-        let worker1 = Worker::new(stack.clone(), idle_count.clone());
-        let worker2 = Worker::new(stack.clone(), idle_count.clone());
-        let worker3 = Worker::new(stack.clone(), idle_count.clone());
-        let worker4 = Worker::new(stack.clone(), idle_count.clone());
+    let mut handles = vec![];
 
-        let task1 = thread::spawn( || worker1.run());
-        let task2 = thread::spawn( || worker2.run());
-        let task3 = thread::spawn( || worker3.run());
-        let task4 = thread::spawn( || worker4.run());
+    for _ in 0..thread_count {
+        let worker = Worker::new(stack.clone(), active_count.clone());
 
-        task1.join().unwrap();
-        task2.join().unwrap();
-        task3.join().unwrap();
-        task4.join().unwrap();
+        let handle = thread::spawn(|| worker.run());
+
+        handles.push(handle);
+    }
+
+    handles.into_iter().for_each(|h| h.join().unwrap());
 }
 
 fn run_scaled_async() {
@@ -58,41 +59,34 @@ fn run_scaled_async() {
     use std::sync::atomic::AtomicUsize;
 
     task::block_on(async {
+        let thread_count = 8;
+        let mut handles = vec![];
+
         let idle_count = Arc::new(AtomicUsize::new(0));
         let stack = scaled_crawler_async::make_stack();
         stack.lock().await.push(DirWork::Path("/home/andy/".into()));
 
-        let worker1 = Worker::new(stack.clone(), idle_count.clone());
-        let worker2 = Worker::new(stack.clone(), idle_count.clone());
-        let worker3 = Worker::new(stack.clone(), idle_count.clone());
-        let worker4 = Worker::new(stack.clone(), idle_count.clone());
+        for _ in 0..thread_count {
+            let worker = Worker::new(stack.clone(), idle_count.clone());
 
-        let task1 = task::spawn(async {
-            worker1.run().await;
-        });
+            let task = task::spawn(async {
+                worker.run().await;
+            });
 
-        let task2 = task::spawn(async {
-            worker2.run().await;
-        });
+            handles.push(task);
+        }
 
-        let task3 = task::spawn(async {
-            worker3.run().await;
-        });
+        let mut handles = handles.into_iter();
 
-        let task4 = task::spawn(async {
-            worker4.run().await;
-        });
-
-        task1.await;
-        task2.await;
-        task3.await;
-        task4.await;
+        while let Some(handle) = handles.next() {
+            handle.await;
+        }
     });
 }
 
 fn run_recursive() {
     use async_std::task;
-    use recursive_crawler::Crawler;
+    use recursive_crawler_async::Crawler;
 
     task::block_on(async {
         let (s, r) = async_channel::unbounded();

@@ -14,3 +14,6 @@ features = ["attributes"]
 
 [dependencies.async-channel]
 version = "1.1"
+
+[profile.release]
+debug=true
