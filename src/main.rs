@@ -16,22 +16,35 @@
 
 mod recursive_crawler_async;
 mod scaled_crawler_async;
+mod scaled_crawler_single_thread;
 mod scaled_crawler_threaded;
 
 fn main() {
     println!("Hello, world!");
 
-    // run_scaled_async();
-    run_scaled_threaded();
+    let thread_count: usize = std::env::args()
+        .nth(1)
+        .unwrap_or("1".to_owned())
+        .parse()
+        .unwrap();
+
+    println!("Running with {} threads/tasks.", thread_count);
+
+    // run_scaled_async(thread_count);
+
+    if thread_count == 1 {
+        run_scaled_single_threaded();
+    } else {
+        run_scaled_threaded(thread_count);
+    }
 }
 
-fn run_scaled_threaded() {
+fn run_scaled_threaded(thread_count: usize) {
     use scaled_crawler_threaded::{DirWork, Worker};
     use std::sync::atomic::AtomicUsize;
     use std::sync::Arc;
     use std::thread;
 
-    let thread_count = 1;
     let active_count = Arc::new(AtomicUsize::new(thread_count));
     let stack = scaled_crawler_threaded::make_stack();
     stack
@@ -52,21 +65,26 @@ fn run_scaled_threaded() {
     handles.into_iter().for_each(|h| h.join().unwrap());
 }
 
-fn run_scaled_async() {
+fn run_scaled_single_threaded() {
+    use scaled_crawler_single_thread::Worker;
+    let worker = Worker::new("/home/andy/".into());
+    worker.run();
+}
+
+fn run_scaled_async(task_count: usize) {
     use async_std::sync::Arc;
     use async_std::task;
     use scaled_crawler_async::{DirWork, Worker};
     use std::sync::atomic::AtomicUsize;
 
     task::block_on(async {
-        let thread_count = 8;
         let mut handles = vec![];
 
         let idle_count = Arc::new(AtomicUsize::new(0));
         let stack = scaled_crawler_async::make_stack();
         stack.lock().await.push(DirWork::Path("/home/andy/".into()));
 
-        for _ in 0..thread_count {
+        for _ in 0..task_count {
             let worker = Worker::new(stack.clone(), idle_count.clone());
 
             let task = task::spawn(async {
