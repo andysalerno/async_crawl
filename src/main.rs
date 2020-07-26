@@ -14,14 +14,12 @@
     future_incompatible
 )]
 
-mod recursive_crawler_async;
-mod scaled_crawler_async;
-mod scaled_crawler_single_thread;
-mod scaled_crawler_threaded;
+mod async_recursive_crawler;
+mod async_scaled_crawler;
+mod threaded_scaled_crawler;
+mod singlethread_crawler;
 
 fn main() {
-    println!("Hello, world!");
-
     let thread_count: usize = std::env::args()
         .nth(1)
         .unwrap_or("1".to_owned())
@@ -40,13 +38,13 @@ fn main() {
 }
 
 fn run_scaled_threaded(thread_count: usize) {
-    use scaled_crawler_threaded::{DirWork, Worker};
+    use threaded_scaled_crawler::{DirWork, Worker};
     use std::sync::atomic::AtomicUsize;
     use std::sync::Arc;
     use std::thread;
 
     let active_count = Arc::new(AtomicUsize::new(thread_count));
-    let stack = scaled_crawler_threaded::make_stack();
+    let stack = threaded_scaled_crawler::make_stack();
     stack
         .lock()
         .unwrap()
@@ -66,7 +64,7 @@ fn run_scaled_threaded(thread_count: usize) {
 }
 
 fn run_scaled_single_threaded() {
-    use scaled_crawler_single_thread::Worker;
+    use singlethread_crawler::Worker;
     let worker = Worker::new("/home/andy/".into());
     worker.run();
 }
@@ -74,14 +72,14 @@ fn run_scaled_single_threaded() {
 fn run_scaled_async(task_count: usize) {
     use async_std::sync::Arc;
     use async_std::task;
-    use scaled_crawler_async::{DirWork, Worker};
+    use async_scaled_crawler::{DirWork, Worker};
     use std::sync::atomic::AtomicUsize;
 
     task::block_on(async {
         let mut handles = vec![];
 
         let idle_count = Arc::new(AtomicUsize::new(0));
-        let stack = scaled_crawler_async::make_stack();
+        let stack = async_scaled_crawler::make_stack();
         stack.lock().await.push(DirWork::Path("/home/andy/".into()));
 
         for _ in 0..task_count {
@@ -104,7 +102,7 @@ fn run_scaled_async(task_count: usize) {
 
 fn run_recursive() {
     use async_std::task;
-    use recursive_crawler_async::Crawler;
+    use async_recursive_crawler::Crawler;
 
     task::block_on(async {
         let (s, r) = async_channel::unbounded();
