@@ -1,10 +1,15 @@
+use crate::Crawler;
 use std::fs::DirEntry;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
-pub(crate) enum DirWork {
+pub(crate) fn make_crawler(thread_count: usize) -> impl Crawler {
+    WorkerManager { thread_count }
+}
+
+enum DirWork {
     Entry(DirEntry),
     Path(PathBuf),
 }
@@ -46,32 +51,51 @@ impl DirWork {
     }
 }
 
-pub(crate) struct Worker {
+impl Crawler for WorkerManager {
+    fn crawl(self, path: &std::path::Path) {
+        use std::thread;
+
+        let active_count = Arc::new(AtomicUsize::new(self.thread_count));
+        let stack = make_stack();
+        stack.lock().unwrap().push(DirWork::Path(path.into()));
+
+        let mut handles = vec![];
+
+        for _ in 0..self.thread_count {
+            let worker = Worker::new(stack.clone(), active_count.clone());
+            let handle = thread::spawn(|| worker.run());
+            handles.push(handle);
+        }
+
+        handles.into_iter().for_each(|h| h.join().unwrap());
+    }
+}
+
+struct Worker {
     stack: SharedStack<DirWork>,
     active_count: Arc<AtomicUsize>,
 }
 
-pub(crate) type SharedStack<T> = Arc<Mutex<Vec<T>>>;
+type SharedStack<T> = Arc<Mutex<Vec<T>>>;
 
-pub(crate) fn make_stack() -> SharedStack<DirWork> {
+fn make_stack() -> SharedStack<DirWork> {
     Arc::new(Mutex::new(vec![]))
 }
 
 struct WorkerManager {
-    stack: SharedStack<DirWork>,
-    workers: Vec<Worker>,
+    thread_count: usize,
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf
 impl Worker {
-    pub fn new(stack: SharedStack<DirWork>, active_count: Arc<AtomicUsize>) -> Self {
+    fn new(stack: SharedStack<DirWork>, active_count: Arc<AtomicUsize>) -> Self {
         Self {
             stack,
             active_count,
         }
     }
 
-    pub fn run(self) {
+    fn run(self) {
         let mut is_active = true;
 
         loop {

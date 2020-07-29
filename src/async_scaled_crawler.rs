@@ -1,3 +1,4 @@
+use crate::Crawler;
 use async_std::fs::DirEntry;
 use async_std::path::PathBuf;
 use async_std::stream::StreamExt;
@@ -58,6 +59,12 @@ pub(crate) fn make_stack() -> SharedStack<DirWork> {
 struct WorkerManager {
     stack: SharedStack<DirWork>,
     workers: Vec<Worker>,
+}
+
+impl Crawler for Worker {
+    fn crawl(self, path: &std::path::Path) {
+        todo!()
+    }
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf

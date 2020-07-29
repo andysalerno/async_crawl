@@ -16,8 +16,12 @@
 
 mod async_recursive_crawler;
 mod async_scaled_crawler;
-mod threaded_scaled_crawler;
 mod singlethread_crawler;
+mod threaded_scaled_crawler;
+
+trait Crawler {
+    fn crawl(self, path: &std::path::Path);
+}
 
 fn main() {
     let thread_count: usize = std::env::args()
@@ -27,52 +31,17 @@ fn main() {
         .unwrap();
 
     println!("Running with {} threads/tasks.", thread_count);
-
-    // run_scaled_async(thread_count);
-
-    if thread_count == 1 {
-        run_scaled_single_threaded();
-    } else {
-        run_scaled_threaded(thread_count);
-    }
-}
-
-fn run_scaled_threaded(thread_count: usize) {
-    use threaded_scaled_crawler::{DirWork, Worker};
-    use std::sync::atomic::AtomicUsize;
-    use std::sync::Arc;
-    use std::thread;
-
-    let active_count = Arc::new(AtomicUsize::new(thread_count));
-    let stack = threaded_scaled_crawler::make_stack();
-    stack
-        .lock()
-        .unwrap()
-        .push(DirWork::Path("/home/andy/".into()));
-
-    let mut handles = vec![];
-
-    for _ in 0..thread_count {
-        let worker = Worker::new(stack.clone(), active_count.clone());
-
-        let handle = thread::spawn(|| worker.run());
-
-        handles.push(handle);
-    }
-
-    handles.into_iter().for_each(|h| h.join().unwrap());
 }
 
 fn run_scaled_single_threaded() {
-    use singlethread_crawler::Worker;
-    let worker = Worker::new("/home/andy/".into());
-    worker.run();
+    let crawler = singlethread_crawler::make_crawler();
+    crawler.crawl(&std::path::PathBuf::from("/hom/andy/"));
 }
 
 fn run_scaled_async(task_count: usize) {
+    use async_scaled_crawler::{DirWork, Worker};
     use async_std::sync::Arc;
     use async_std::task;
-    use async_scaled_crawler::{DirWork, Worker};
     use std::sync::atomic::AtomicUsize;
 
     task::block_on(async {
@@ -101,8 +70,8 @@ fn run_scaled_async(task_count: usize) {
 }
 
 fn run_recursive() {
+    use async_recursive_crawler::RecursiveCrawler;
     use async_std::task;
-    use async_recursive_crawler::Crawler;
 
     task::block_on(async {
         let (s, r) = async_channel::unbounded();
@@ -110,7 +79,7 @@ fn run_recursive() {
         let s_clone = s.clone();
 
         s.send(async_std::task::spawn(async move {
-            let crawler = Crawler::new(s_clone);
+            let crawler = RecursiveCrawler::new(s_clone);
             crawler.handle_dir("/home/andy".into()).await;
         }))
         .await;

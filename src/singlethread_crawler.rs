@@ -1,7 +1,18 @@
+use crate::Crawler;
 use std::fs::DirEntry;
 use std::path::PathBuf;
 
-pub(crate) enum DirWork {
+pub(crate) fn make_crawler() -> impl Crawler {
+    Worker::new()
+}
+
+impl Crawler for Worker {
+    fn crawl(self, path: &std::path::Path) {
+        self.run(path.into());
+    }
+}
+
+enum DirWork {
     Entry(DirEntry),
     Path(PathBuf),
 }
@@ -50,15 +61,17 @@ pub(crate) struct Worker {
 
 // TODO: try using all DirEntry instead of Path, may have better perf
 impl Worker {
-    pub fn new(path :PathBuf) -> Self {
+    pub fn new() -> Self {
         let mut worker = Self::default();
 
-        worker.stack = vec![DirWork::Path(path)];
+        worker.stack = vec![];
 
         worker
     }
 
-    pub fn run(mut self) {
+    fn run(mut self, path: PathBuf) {
+        self.stack.push(DirWork::Path(path));
+
         let mut is_active = true;
 
         loop {

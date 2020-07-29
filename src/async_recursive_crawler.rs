@@ -1,14 +1,21 @@
+use crate::Crawler;
 use async_channel::Sender;
 use async_std::path::{Path, PathBuf};
 use async_std::stream::StreamExt;
 use std::future::Future;
 use std::pin::Pin;
 
-pub(crate) struct Crawler {
+pub(crate) struct RecursiveCrawler {
     wait_pool: Sender<async_std::task::JoinHandle<()>>,
 }
 
-impl Crawler {
+impl Crawler for RecursiveCrawler {
+    fn crawl(self, path: &std::path::Path) {
+        todo!()
+    }
+}
+
+impl RecursiveCrawler {
     pub fn new(wait_pool: Sender<async_std::task::JoinHandle<()>>) -> Self {
         Self { wait_pool }
     }
@@ -47,7 +54,7 @@ impl Crawler {
                     .send(async_std::task::spawn(async move {
                         // let crawler = Crawler::new(matcher, printer, buf_pool);
                         // crawler.handle_file(&dir_child).await;
-                        let crawler = Crawler::new(pool_copy);
+                        let crawler = RecursiveCrawler::new(pool_copy);
                         crawler.handle_dir(dir_child).await;
                     }))
                     .await;
