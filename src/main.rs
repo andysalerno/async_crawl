@@ -30,62 +30,17 @@ fn main() {
         .parse()
         .unwrap();
 
+    let async_crawler = async_scaled_crawler::make_crawler(thread_count);
+    async_crawler.crawl(&std::path::PathBuf::from("/home/andy/"));
+
+    let threaded_crawler = threaded_scaled_crawler::make_crawler(thread_count);
+    threaded_crawler.crawl(&std::path::PathBuf::from("/home/andy/"));
+
+    let singlethread_crawler = singlethread_crawler::make_crawler();
+    singlethread_crawler.crawl(&std::path::PathBuf::from("/home/andy/"));
+
+    let async_recursive_crawler = async_scaled_crawler::make_crawler(thread_count);
+    async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"));
+
     println!("Running with {} threads/tasks.", thread_count);
-}
-
-fn run_scaled_single_threaded() {
-    let crawler = singlethread_crawler::make_crawler();
-    crawler.crawl(&std::path::PathBuf::from("/hom/andy/"));
-}
-
-fn run_scaled_async(task_count: usize) {
-    use async_scaled_crawler::{DirWork, Worker};
-    use async_std::sync::Arc;
-    use async_std::task;
-    use std::sync::atomic::AtomicUsize;
-
-    task::block_on(async {
-        let mut handles = vec![];
-
-        let idle_count = Arc::new(AtomicUsize::new(0));
-        let stack = async_scaled_crawler::make_stack();
-        stack.lock().await.push(DirWork::Path("/home/andy/".into()));
-
-        for _ in 0..task_count {
-            let worker = Worker::new(stack.clone(), idle_count.clone());
-
-            let task = task::spawn(async {
-                worker.run().await;
-            });
-
-            handles.push(task);
-        }
-
-        let mut handles = handles.into_iter();
-
-        while let Some(handle) = handles.next() {
-            handle.await;
-        }
-    });
-}
-
-fn run_recursive() {
-    use async_recursive_crawler::RecursiveCrawler;
-    use async_std::task;
-
-    task::block_on(async {
-        let (s, r) = async_channel::unbounded();
-
-        let s_clone = s.clone();
-
-        s.send(async_std::task::spawn(async move {
-            let crawler = RecursiveCrawler::new(s_clone);
-            crawler.handle_dir("/home/andy".into()).await;
-        }))
-        .await;
-
-        while let Ok(joiner) = r.try_recv() {
-            joiner.await;
-        }
-    });
 }

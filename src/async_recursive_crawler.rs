@@ -5,18 +5,42 @@ use async_std::stream::StreamExt;
 use std::future::Future;
 use std::pin::Pin;
 
-pub(crate) struct RecursiveCrawler {
+pub(crate) fn make_crawler() -> impl Crawler {
+    RecursiveCrawlerManager
+}
+
+struct RecursiveCrawlerManager;
+
+struct RecursiveCrawler {
     wait_pool: Sender<async_std::task::JoinHandle<()>>,
 }
 
-impl Crawler for RecursiveCrawler {
+impl Crawler for RecursiveCrawlerManager {
     fn crawl(self, path: &std::path::Path) {
-        todo!()
+        use async_std::task;
+
+        let path: async_std::path::PathBuf = path.into();
+
+        task::block_on(async {
+            let (s, r) = async_channel::unbounded();
+
+            let s_clone = s.clone();
+
+            s.send(async_std::task::spawn(async move {
+                let crawler = RecursiveCrawler::new(s_clone);
+                crawler.handle_dir(path).await;
+            }))
+            .await.expect("task failed.");
+
+            while let Ok(joiner) = r.try_recv() {
+                joiner.await;
+            }
+        });
     }
 }
 
 impl RecursiveCrawler {
-    pub fn new(wait_pool: Sender<async_std::task::JoinHandle<()>>) -> Self {
+    fn new(wait_pool: Sender<async_std::task::JoinHandle<()>>) -> Self {
         Self { wait_pool }
     }
 
@@ -24,7 +48,7 @@ impl RecursiveCrawler {
         // println!("{:?}", path);
     }
 
-    pub fn handle_dir(self, path: PathBuf) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    fn handle_dir(self, path: PathBuf) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         let result = Box::pin(async move {
             let is_sym = path
                 .symlink_metadata()

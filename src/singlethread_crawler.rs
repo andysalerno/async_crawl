@@ -55,13 +55,13 @@ impl DirWork {
 }
 
 #[derive(Default)]
-pub(crate) struct Worker {
+struct Worker {
     stack: Vec<DirWork>,
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf
 impl Worker {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let mut worker = Self::default();
 
         worker.stack = vec![];

@@ -6,7 +6,11 @@ use async_std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-pub(crate) enum DirWork {
+pub(crate) fn make_crawler(task_count: usize) -> impl Crawler {
+    WorkerManager { task_count }
+}
+
+enum DirWork {
     Entry(DirEntry),
     Path(PathBuf),
 }
@@ -46,34 +50,57 @@ impl DirWork {
     }
 }
 
-pub(crate) struct Worker {
+struct Worker {
     stack: SharedStack<DirWork>,
     idle_count: Arc<AtomicUsize>,
 }
 
-pub(crate) type SharedStack<T> = Arc<Mutex<Vec<T>>>;
-pub(crate) fn make_stack() -> SharedStack<DirWork> {
+type SharedStack<T> = Arc<Mutex<Vec<T>>>;
+fn make_stack() -> SharedStack<DirWork> {
     Arc::new(Mutex::new(vec![]))
 }
 
 struct WorkerManager {
-    stack: SharedStack<DirWork>,
-    workers: Vec<Worker>,
+    task_count: usize,
 }
 
-impl Crawler for Worker {
+impl Crawler for WorkerManager {
     fn crawl(self, path: &std::path::Path) {
-        todo!()
+        use async_std::task;
+
+        task::block_on(async {
+            let mut handles = vec![];
+
+            let idle_count = Arc::new(AtomicUsize::new(0));
+            let stack = make_stack();
+            stack.lock().await.push(DirWork::Path("/home/andy/".into()));
+
+            for _ in 0..self.task_count {
+                let worker = Worker::new(stack.clone(), idle_count.clone());
+
+                let task = task::spawn(async {
+                    worker.run().await;
+                });
+
+                handles.push(task);
+            }
+
+            let mut handles = handles.into_iter();
+
+            while let Some(handle) = handles.next() {
+                handle.await;
+            }
+        });
     }
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf
 impl Worker {
-    pub fn new(stack: SharedStack<DirWork>, idle_count: Arc<AtomicUsize>) -> Self {
+    fn new(stack: SharedStack<DirWork>, idle_count: Arc<AtomicUsize>) -> Self {
         Self { stack, idle_count }
     }
 
-    pub async fn run(self) {
+    async fn run(self) {
         let mut is_idle = false;
 
         loop {
