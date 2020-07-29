@@ -20,7 +20,7 @@ mod singlethread_crawler;
 mod threaded_scaled_crawler;
 
 trait Crawler {
-    fn crawl(self, path: &std::path::Path);
+    fn crawl<F: Fn() + Send + Clone + 'static>(self, path: &std::path::Path, f: F);
 }
 
 fn main() {
@@ -30,17 +30,19 @@ fn main() {
         .parse()
         .unwrap();
 
+    let action = || println!("Hi!!!");
+
     let async_crawler = async_scaled_crawler::make_crawler(thread_count);
-    async_crawler.crawl(&std::path::PathBuf::from("/home/andy/"));
+    async_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
 
     let threaded_crawler = threaded_scaled_crawler::make_crawler(thread_count);
-    threaded_crawler.crawl(&std::path::PathBuf::from("/home/andy/"));
+    threaded_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
 
     let singlethread_crawler = singlethread_crawler::make_crawler();
-    singlethread_crawler.crawl(&std::path::PathBuf::from("/home/andy/"));
+    singlethread_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
 
     let async_recursive_crawler = async_scaled_crawler::make_crawler(thread_count);
-    async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"));
+    async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
 
     println!("Running with {} threads/tasks.", thread_count);
 }

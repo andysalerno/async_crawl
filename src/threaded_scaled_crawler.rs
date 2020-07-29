@@ -52,7 +52,7 @@ impl DirWork {
 }
 
 impl Crawler for WorkerManager {
-    fn crawl(self, path: &std::path::Path) {
+    fn crawl<F: Fn() + Send + Clone + 'static>(self, path: &std::path::Path, f: F) {
         use std::thread;
 
         let active_count = Arc::new(AtomicUsize::new(self.thread_count));
@@ -62,7 +62,7 @@ impl Crawler for WorkerManager {
         let mut handles = vec![];
 
         for _ in 0..self.thread_count {
-            let worker = Worker::new(stack.clone(), active_count.clone());
+            let worker = Worker::new(stack.clone(), active_count.clone(), f.clone());
             let handle = thread::spawn(|| worker.run());
             handles.push(handle);
         }
@@ -71,9 +71,10 @@ impl Crawler for WorkerManager {
     }
 }
 
-struct Worker {
+struct Worker<F: FnOnce()> {
     stack: SharedStack<DirWork>,
     active_count: Arc<AtomicUsize>,
+    f: F,
 }
 
 type SharedStack<T> = Arc<Mutex<Vec<T>>>;
@@ -87,11 +88,12 @@ struct WorkerManager {
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf
-impl Worker {
-    fn new(stack: SharedStack<DirWork>, active_count: Arc<AtomicUsize>) -> Self {
+impl<F: Fn()> Worker<F> {
+    fn new(stack: SharedStack<DirWork>, active_count: Arc<AtomicUsize>, f: F) -> Self {
         Self {
             stack,
             active_count,
+            f,
         }
     }
 
@@ -129,13 +131,9 @@ impl Worker {
         }
     }
 
-    fn work_handler(work: DirWork) {
-        // println!("{}", work.to_path().display());
-    }
-
     fn run_one(&self, work: DirWork) {
         if work.is_file() {
-            Self::work_handler(work);
+            (self.f)();
             return;
         }
 

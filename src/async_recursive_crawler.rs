@@ -16,7 +16,7 @@ struct RecursiveCrawler {
 }
 
 impl Crawler for RecursiveCrawlerManager {
-    fn crawl(self, path: &std::path::Path) {
+    fn crawl<F: Fn()>(self, path: &std::path::Path, f: F) {
         use async_std::task;
 
         let path: async_std::path::PathBuf = path.into();
@@ -30,7 +30,8 @@ impl Crawler for RecursiveCrawlerManager {
                 let crawler = RecursiveCrawler::new(s_clone);
                 crawler.handle_dir(path).await;
             }))
-            .await.expect("task failed.");
+            .await
+            .expect("task failed.");
 
             while let Ok(joiner) = r.try_recv() {
                 joiner.await;
@@ -81,7 +82,8 @@ impl RecursiveCrawler {
                         let crawler = RecursiveCrawler::new(pool_copy);
                         crawler.handle_dir(dir_child).await;
                     }))
-                    .await;
+                    .await
+                    .expect("failed sending task to pool.");
             }
         });
 

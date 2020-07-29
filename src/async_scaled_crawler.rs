@@ -65,7 +65,7 @@ struct WorkerManager {
 }
 
 impl Crawler for WorkerManager {
-    fn crawl(self, path: &std::path::Path) {
+    fn crawl<F: Fn()>(self, path: &std::path::Path, f: F) {
         use async_std::task;
 
         task::block_on(async {

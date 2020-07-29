@@ -7,7 +7,7 @@ pub(crate) fn make_crawler() -> impl Crawler {
 }
 
 impl Crawler for Worker {
-    fn crawl(self, path: &std::path::Path) {
+    fn crawl<F: Fn()>(self, path: &std::path::Path, f: F) {
         self.run(path.into());
     }
 }
@@ -55,18 +55,15 @@ impl DirWork {
 }
 
 #[derive(Default)]
-struct Worker {
+struct Worker<F: Fn()> {
     stack: Vec<DirWork>,
+    f: F,
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf
-impl Worker {
-    fn new() -> Self {
-        let mut worker = Self::default();
-
-        worker.stack = vec![];
-
-        worker
+impl<F: Fn()> Worker<F> {
+    fn new(f: F) -> Self {
+        Worker { stack: vec![], f }
     }
 
     fn run(mut self, path: PathBuf) {
@@ -91,6 +88,7 @@ impl Worker {
 
     fn run_one(&mut self, work: DirWork) {
         if work.is_file() {
+            (self.f)();
             Self::work_handler(work);
             return;
         }
