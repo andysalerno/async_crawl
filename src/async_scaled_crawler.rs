@@ -1,21 +1,21 @@
-use crate::dir_work::r#async::DirWork;
-use crate::Crawler;
+use crate::dir_work::r#async::AsyncDirWork;
+use crate::AsyncCrawler;
 use async_std::stream::StreamExt;
 use async_std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-pub(crate) fn make_crawler(task_count: usize) -> impl Crawler {
+pub(crate) fn make_crawler(task_count: usize) -> impl AsyncCrawler {
     WorkerManager { task_count }
 }
 
 struct Worker {
-    stack: SharedStack<DirWork>,
+    stack: SharedStack<AsyncDirWork>,
     idle_count: Arc<AtomicUsize>,
 }
 
 type SharedStack<T> = Arc<Mutex<Vec<T>>>;
-fn make_stack() -> SharedStack<DirWork> {
+fn make_stack() -> SharedStack<AsyncDirWork> {
     Arc::new(Mutex::new(vec![]))
 }
 
@@ -23,8 +23,8 @@ struct WorkerManager {
     task_count: usize,
 }
 
-impl Crawler for WorkerManager {
-    fn crawl<F: Fn()>(self, path: &std::path::Path, f: F) {
+impl AsyncCrawler for WorkerManager {
+    fn crawl<F: Fn(AsyncDirWork)>(self, path: &std::path::Path, f: F) {
         use async_std::task;
 
         task::block_on(async {
@@ -32,7 +32,10 @@ impl Crawler for WorkerManager {
 
             let idle_count = Arc::new(AtomicUsize::new(0));
             let stack = make_stack();
-            stack.lock().await.push(DirWork::Path("/home/andy/".into()));
+            stack
+                .lock()
+                .await
+                .push(AsyncDirWork::Path("/home/andy/".into()));
 
             for _ in 0..self.task_count {
                 let worker = Worker::new(stack.clone(), idle_count.clone());
@@ -55,7 +58,7 @@ impl Crawler for WorkerManager {
 
 // TODO: try using all DirEntry instead of Path, may have better perf
 impl Worker {
-    fn new(stack: SharedStack<DirWork>, idle_count: Arc<AtomicUsize>) -> Self {
+    fn new(stack: SharedStack<AsyncDirWork>, idle_count: Arc<AtomicUsize>) -> Self {
         Self { stack, idle_count }
     }
 
@@ -93,12 +96,12 @@ impl Worker {
         }
     }
 
-    async fn work_handler(work: DirWork) {
+    async fn work_handler(work: AsyncDirWork) {
         // println!("{}", work.to_path().display());
         // async_std::task::sleep(std::time::Duration::from_millis(100)).await;
     }
 
-    async fn run_one(&self, work: DirWork) {
+    async fn run_one(&self, work: AsyncDirWork) {
         let is_symlink = work.is_symlink().await;
 
         if is_symlink || !work.is_dir().await {
@@ -114,7 +117,7 @@ impl Worker {
             self.stack
                 .lock()
                 .await
-                .push(DirWork::Entry(dir_child.unwrap()));
+                .push(AsyncDirWork::Entry(dir_child.unwrap()));
         }
     }
 }

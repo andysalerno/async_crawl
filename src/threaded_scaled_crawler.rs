@@ -19,7 +19,7 @@ impl Crawler for WorkerManager {
         let mut handles = vec![];
 
         for _ in 0..self.thread_count {
-            let worker = Worker::new(stack.clone(), active_count.clone(), f);
+            let worker = Worker::new(stack.clone(), active_count.clone(), f.clone());
             let handle = thread::spawn(|| worker.run());
             handles.push(handle);
         }
@@ -99,7 +99,7 @@ impl<F: Fn(DirWork)> Worker<F> {
         }
 
         // it's a dir, so we must read it and push its children as new work
-        let mut dir_children = std::fs::read_dir(work.path()).unwrap();
+        let mut dir_children = std::fs::read_dir(work.into_pathbuf()).unwrap();
 
         while let Some(dir_child) = dir_children.next() {
             // TODO: try locking once around the loop?  What does BurntSushi know that I don't...

@@ -1,6 +1,6 @@
 pub(crate) mod sync {
     use std::fs::DirEntry;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     pub(crate) enum DirWork {
         Entry(DirEntry),
@@ -8,7 +8,7 @@ pub(crate) mod sync {
     }
 
     impl DirWork {
-        pub(crate) fn to_path(self) -> std::path::PathBuf {
+        pub(crate) fn into_pathbuf(self) -> std::path::PathBuf {
             match self {
                 DirWork::Entry(e) => e.path(),
                 DirWork::Path(path) => path,
@@ -36,12 +36,12 @@ pub(crate) mod sync {
             }
         }
 
-        pub(crate) fn path(self) -> PathBuf {
-            match self {
-                DirWork::Entry(e) => e.path(),
-                DirWork::Path(path) => path,
-            }
-        }
+        // pub(crate) fn path(&self) -> &Path {
+        //     match *self {
+        //         DirWork::Entry(ref e) => &e.path(),
+        //         DirWork::Path(ref path) => path,
+        //     }
+        // }
     }
 }
 
@@ -49,30 +49,30 @@ pub(crate) mod r#async {
     use async_std::fs::DirEntry;
     use async_std::path::PathBuf;
 
-    pub(crate) enum DirWork {
+    pub(crate) enum AsyncDirWork {
         Entry(DirEntry),
         Path(PathBuf),
     }
 
-    impl DirWork {
+    impl AsyncDirWork {
         pub(crate) fn to_path(self) -> async_std::path::PathBuf {
             match self {
-                DirWork::Entry(e) => e.path(),
-                DirWork::Path(path) => path,
+                Self::Entry(e) => e.path(),
+                Self::Path(path) => path,
             }
         }
 
         pub(crate) async fn is_dir(&self) -> bool {
             match self {
-                DirWork::Entry(e) => e.metadata().await.unwrap().is_dir(),
-                DirWork::Path(path) => path.is_dir().await,
+                Self::Entry(e) => e.metadata().await.unwrap().is_dir(),
+                Self::Path(path) => path.is_dir().await,
             }
         }
 
         pub(crate) async fn is_symlink(&self) -> bool {
             match self {
-                DirWork::Entry(e) => e.file_type().await.unwrap().is_symlink(),
-                DirWork::Path(path) => path
+                Self::Entry(e) => e.file_type().await.unwrap().is_symlink(),
+                Self::Path(path) => path
                     .symlink_metadata()
                     .await
                     .unwrap()
@@ -83,8 +83,8 @@ pub(crate) mod r#async {
 
         pub(crate) fn path(self) -> PathBuf {
             match self {
-                DirWork::Entry(e) => e.path(),
-                DirWork::Path(path) => path,
+                Self::Entry(e) => e.path(),
+                Self::Path(path) => path,
             }
         }
     }

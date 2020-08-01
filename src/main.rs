@@ -20,11 +20,18 @@ mod dir_work;
 mod singlethread_crawler;
 mod threaded_scaled_crawler;
 
+use dir_work::r#async::AsyncDirWork;
 use dir_work::sync::DirWork;
-use dir_work::r#async::DirWork as AsyncDirWork;
+use std::io::{self, Write};
+use std::path::Path;
+use std::thread;
 
 trait Crawler {
     fn crawl<F: Fn(DirWork) + Send + Clone + 'static>(self, path: &std::path::Path, f: F);
+}
+
+trait AsyncCrawler {
+    fn crawl<F: Fn(AsyncDirWork) + Send + Clone + 'static>(self, path: &std::path::Path, f: F);
 }
 
 fn main() {
@@ -38,7 +45,19 @@ fn main() {
         .nth(2)
         .expect("Usage: ./bin thread_count target_dir");
 
-    let action = |work| println!("Hi!!!");
+    // let (tx, rx) = channel::bounded::<DirEntry>(100);
+
+    // let stdout_thread = thread::spawn(move || {
+    //     let mut stdout = io::BufWriter::new(io::stdout());
+    //     for dent in rx {
+    //         write_path(&mut stdout, dent.path());
+    //     }
+    // });
+
+    let action = |work: DirWork| {
+        let stdout = io::BufWriter::new(io::stdout());
+        write_path(stdout, &work.into_pathbuf());
+    };
 
     // let async_crawler = async_scaled_crawler::make_crawler(thread_count);
     // async_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
@@ -51,4 +70,10 @@ fn main() {
 
     // let async_recursive_crawler = async_scaled_crawler::make_crawler(thread_count);
     // async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
+}
+
+fn write_path<W: Write>(mut wtr: W, path: &Path) {
+    use std::os::unix::ffi::OsStrExt;
+    wtr.write(path.as_os_str().as_bytes()).unwrap();
+    wtr.write(b"\n").unwrap();
 }

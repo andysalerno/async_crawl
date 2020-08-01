@@ -1,11 +1,12 @@
-use crate::Crawler;
+use crate::dir_work::r#async::AsyncDirWork;
+use crate::AsyncCrawler;
 use async_channel::Sender;
 use async_std::path::{Path, PathBuf};
 use async_std::stream::StreamExt;
 use std::future::Future;
 use std::pin::Pin;
 
-pub(crate) fn make_crawler() -> impl Crawler {
+pub(crate) fn make_crawler() -> impl AsyncCrawler {
     RecursiveCrawlerManager
 }
 
@@ -15,8 +16,8 @@ struct RecursiveCrawler {
     wait_pool: Sender<async_std::task::JoinHandle<()>>,
 }
 
-impl Crawler for RecursiveCrawlerManager {
-    fn crawl<F: Fn()>(self, path: &std::path::Path, f: F) {
+impl AsyncCrawler for RecursiveCrawlerManager {
+    fn crawl<F: Fn(AsyncDirWork)>(self, path: &std::path::Path, f: F) {
         use async_std::task;
 
         let path: async_std::path::PathBuf = path.into();

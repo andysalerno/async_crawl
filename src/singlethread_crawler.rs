@@ -27,25 +27,27 @@ impl Worker {
         self.stack.push(DirWork::Path(path));
 
         while let Some(work) = self.stack.pop() {
-            self.run_one(work, f);
+            self.run_one(work, &f);
         }
     }
 
-    fn run_one<F: Fn(DirWork)>(&mut self, work: DirWork, f: F) {
+    fn run_one<F: Fn(DirWork)>(&mut self, work: DirWork, f: &F) -> Result<(), Box<std::io::Error>> {
         if work.is_file() {
             (f)(work);
-            return;
+            return Ok(());
         }
 
         if !work.is_dir() {
-            return;
+            return Ok(());
         }
 
         // it's a dir, so we must read it and push its children as new work
-        let mut dir_children = std::fs::read_dir(work.path()).unwrap();
+        let mut dir_children = std::fs::read_dir(work.into_pathbuf())?;
 
         while let Some(dir_child) = dir_children.next() {
             self.stack.push(DirWork::Entry(dir_child.unwrap()));
         }
+
+        Ok(())
     }
 }
