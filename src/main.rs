@@ -30,19 +30,21 @@ fn main() {
         .parse()
         .unwrap();
 
+    let dir = std::env::args()
+        .nth(2)
+        .expect("Usage: ./bin thread_count target_dir");
+
     let action = || println!("Hi!!!");
 
-    let async_crawler = async_scaled_crawler::make_crawler(thread_count);
-    async_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
+    // let async_crawler = async_scaled_crawler::make_crawler(thread_count);
+    // async_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
 
-    let threaded_crawler = threaded_scaled_crawler::make_crawler(thread_count);
-    threaded_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
+    // let threaded_crawler = threaded_scaled_crawler::make_crawler(thread_count);
+    // threaded_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
 
     let singlethread_crawler = singlethread_crawler::make_crawler();
-    singlethread_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
+    singlethread_crawler.crawl(&std::path::PathBuf::from(dir), action);
 
-    let async_recursive_crawler = async_scaled_crawler::make_crawler(thread_count);
-    async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
-
-    println!("Running with {} threads/tasks.", thread_count);
+    // let async_recursive_crawler = async_scaled_crawler::make_crawler(thread_count);
+    // async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
 }

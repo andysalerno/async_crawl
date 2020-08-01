@@ -7,8 +7,8 @@ pub(crate) fn make_crawler() -> impl Crawler {
 }
 
 impl Crawler for Worker {
-    fn crawl<F: Fn()>(self, path: &std::path::Path, f: F) {
-        self.run(path.into());
+    fn crawl<T: Fn() + Send + Clone + 'static>(self, path: &std::path::Path, f: T) {
+        self.run(path.into(), f);
     }
 }
 
@@ -55,41 +55,27 @@ impl DirWork {
 }
 
 #[derive(Default)]
-struct Worker<F: Fn()> {
+struct Worker {
     stack: Vec<DirWork>,
-    f: F,
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf
-impl<F: Fn()> Worker<F> {
-    fn new(f: F) -> Self {
-        Worker { stack: vec![], f }
+impl Worker {
+    fn new() -> Self {
+        Worker { stack: vec![] }
     }
 
-    fn run(mut self, path: PathBuf) {
+    fn run<F: Fn() + Clone>(mut self, path: PathBuf, f: F) {
         self.stack.push(DirWork::Path(path));
 
-        let mut is_active = true;
-
-        loop {
-            let work = self.stack.pop();
-
-            if work.is_none() {
-                return;
-            }
-
-            self.run_one(work.unwrap());
+        while let Some(work) = self.stack.pop() {
+            self.run_one(work, f.clone());
         }
     }
 
-    fn work_handler(work: DirWork) {
-        // println!("{}", work.to_path().display());
-    }
-
-    fn run_one(&mut self, work: DirWork) {
+    fn run_one<F: Fn()>(&mut self, work: DirWork, f: F) {
         if work.is_file() {
-            (self.f)();
-            Self::work_handler(work);
+            (f)();
             return;
         }
 
@@ -101,7 +87,6 @@ impl<F: Fn()> Worker<F> {
         let mut dir_children = std::fs::read_dir(work.path()).unwrap();
 
         while let Some(dir_child) = dir_children.next() {
-            // TODO: try locking once around the loop?  What does BurntSushi know that I don't...
             self.stack.push(DirWork::Entry(dir_child.unwrap()));
         }
     }
