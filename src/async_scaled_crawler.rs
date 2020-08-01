@@ -1,6 +1,5 @@
+use crate::dir_work::r#async::DirWork;
 use crate::Crawler;
-use async_std::fs::DirEntry;
-use async_std::path::PathBuf;
 use async_std::stream::StreamExt;
 use async_std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
@@ -8,46 +7,6 @@ use std::sync::atomic::Ordering;
 
 pub(crate) fn make_crawler(task_count: usize) -> impl Crawler {
     WorkerManager { task_count }
-}
-
-enum DirWork {
-    Entry(DirEntry),
-    Path(PathBuf),
-}
-
-impl DirWork {
-    fn to_path(self) -> async_std::path::PathBuf {
-        match self {
-            DirWork::Entry(e) => e.path(),
-            DirWork::Path(path) => path,
-        }
-    }
-
-    async fn is_dir(&self) -> bool {
-        match self {
-            DirWork::Entry(e) => e.metadata().await.unwrap().is_dir(),
-            DirWork::Path(path) => path.is_dir().await,
-        }
-    }
-
-    async fn is_symlink(&self) -> bool {
-        match self {
-            DirWork::Entry(e) => e.file_type().await.unwrap().is_symlink(),
-            DirWork::Path(path) => path
-                .symlink_metadata()
-                .await
-                .unwrap()
-                .file_type()
-                .is_symlink(),
-        }
-    }
-
-    fn path(self) -> PathBuf {
-        match self {
-            DirWork::Entry(e) => e.path(),
-            DirWork::Path(path) => path,
-        }
-    }
 }
 
 struct Worker {

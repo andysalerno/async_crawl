@@ -1,6 +1,5 @@
+use crate::dir_work::sync::DirWork;
 use crate::Crawler;
-use std::fs::DirEntry;
-use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
@@ -9,50 +8,8 @@ pub(crate) fn make_crawler(thread_count: usize) -> impl Crawler {
     WorkerManager { thread_count }
 }
 
-enum DirWork {
-    Entry(DirEntry),
-    Path(PathBuf),
-}
-
-impl DirWork {
-    fn to_path(self) -> std::path::PathBuf {
-        match self {
-            DirWork::Entry(e) => e.path(),
-            DirWork::Path(path) => path,
-        }
-    }
-
-    fn is_dir(&self) -> bool {
-        match self {
-            DirWork::Entry(e) => e.metadata().unwrap().is_dir(),
-            DirWork::Path(path) => path.is_dir(),
-        }
-    }
-
-    fn is_file(&self) -> bool {
-        match self {
-            DirWork::Entry(e) => e.metadata().unwrap().is_file(),
-            DirWork::Path(path) => path.is_file(),
-        }
-    }
-
-    fn is_symlink(&self) -> bool {
-        match self {
-            DirWork::Entry(e) => e.file_type().unwrap().is_symlink(),
-            DirWork::Path(path) => path.symlink_metadata().unwrap().file_type().is_symlink(),
-        }
-    }
-
-    fn path(self) -> PathBuf {
-        match self {
-            DirWork::Entry(e) => e.path(),
-            DirWork::Path(path) => path,
-        }
-    }
-}
-
 impl Crawler for WorkerManager {
-    fn crawl<F: Fn() + Send + Clone + 'static>(self, path: &std::path::Path, f: F) {
+    fn crawl<F: Fn(DirWork) + Send + Clone + 'static>(self, path: &std::path::Path, f: F) {
         use std::thread;
 
         let active_count = Arc::new(AtomicUsize::new(self.thread_count));
@@ -62,7 +19,7 @@ impl Crawler for WorkerManager {
         let mut handles = vec![];
 
         for _ in 0..self.thread_count {
-            let worker = Worker::new(stack.clone(), active_count.clone(), f.clone());
+            let worker = Worker::new(stack.clone(), active_count.clone(), f);
             let handle = thread::spawn(|| worker.run());
             handles.push(handle);
         }
@@ -71,7 +28,7 @@ impl Crawler for WorkerManager {
     }
 }
 
-struct Worker<F: FnOnce()> {
+struct Worker<F: Fn(DirWork)> {
     stack: SharedStack<DirWork>,
     active_count: Arc<AtomicUsize>,
     f: F,
@@ -88,7 +45,7 @@ struct WorkerManager {
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf
-impl<F: Fn()> Worker<F> {
+impl<F: Fn(DirWork)> Worker<F> {
     fn new(stack: SharedStack<DirWork>, active_count: Arc<AtomicUsize>, f: F) -> Self {
         Self {
             stack,
@@ -133,7 +90,7 @@ impl<F: Fn()> Worker<F> {
 
     fn run_one(&self, work: DirWork) {
         if work.is_file() {
-            (self.f)();
+            (self.f)(work);
             return;
         }
 

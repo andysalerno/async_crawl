@@ -16,11 +16,15 @@
 
 mod async_recursive_crawler;
 mod async_scaled_crawler;
+mod dir_work;
 mod singlethread_crawler;
 mod threaded_scaled_crawler;
 
+use dir_work::sync::DirWork;
+use dir_work::r#async::DirWork as AsyncDirWork;
+
 trait Crawler {
-    fn crawl<F: Fn() + Send + Clone + 'static>(self, path: &std::path::Path, f: F);
+    fn crawl<F: Fn(DirWork) + Send + Clone + 'static>(self, path: &std::path::Path, f: F);
 }
 
 fn main() {
@@ -34,7 +38,7 @@ fn main() {
         .nth(2)
         .expect("Usage: ./bin thread_count target_dir");
 
-    let action = || println!("Hi!!!");
+    let action = |work| println!("Hi!!!");
 
     // let async_crawler = async_scaled_crawler::make_crawler(thread_count);
     // async_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
