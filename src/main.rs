@@ -21,7 +21,7 @@ mod singlethread_crawler;
 mod threaded_scaled_crawler;
 
 use async_std::path::Path as AsyncPath;
-use crossbeam_channel::bounded;
+use crossbeam_channel::{bounded, unbounded};
 use dir_work::r#async::AsyncDirWork;
 use dir_work::sync::DirWork;
 use std::io::{self, Write};
@@ -51,7 +51,7 @@ fn main() {
         .nth(2)
         .expect("Usage: ./bin thread_count target_dir");
 
-    let (tx, rx) = bounded::<DirWork>(100);
+    let (tx, rx) = bounded::<DirWork>(128);
 
     let stdout_thread = thread::spawn(move || {
         let mut stdout = io::BufWriter::new(io::stdout());
