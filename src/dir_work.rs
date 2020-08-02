@@ -35,13 +35,6 @@ pub(crate) mod sync {
                 DirWork::Path(path) => path.symlink_metadata().unwrap().file_type().is_symlink(),
             }
         }
-
-        // pub(crate) fn path(&self) -> &Path {
-        //     match *self {
-        //         DirWork::Entry(ref e) => &e.path(),
-        //         DirWork::Path(ref path) => path,
-        //     }
-        // }
     }
 }
 
@@ -55,7 +48,7 @@ pub(crate) mod r#async {
     }
 
     impl AsyncDirWork {
-        pub(crate) fn to_path(self) -> async_std::path::PathBuf {
+        pub(crate) fn into_pathbuf(self) -> async_std::path::PathBuf {
             match self {
                 Self::Entry(e) => e.path(),
                 Self::Path(path) => path,
@@ -64,20 +57,23 @@ pub(crate) mod r#async {
 
         pub(crate) async fn is_dir(&self) -> bool {
             match self {
-                Self::Entry(e) => e.metadata().await.unwrap().is_dir(),
+                Self::Entry(e) => e
+                    .metadata()
+                    .await
+                    .and_then(|m| Ok(m.is_dir()))
+                    .unwrap_or(false),
                 Self::Path(path) => path.is_dir().await,
             }
         }
 
-        pub(crate) async fn is_symlink(&self) -> bool {
+        pub(crate) async fn is_file(&self) -> bool {
             match self {
-                Self::Entry(e) => e.file_type().await.unwrap().is_symlink(),
-                Self::Path(path) => path
-                    .symlink_metadata()
+                Self::Entry(e) => e
+                    .metadata()
                     .await
-                    .unwrap()
-                    .file_type()
-                    .is_symlink(),
+                    .and_then(|m| Ok(m.is_file()))
+                    .unwrap_or(false),
+                Self::Path(path) => path.is_file().await,
             }
         }
 

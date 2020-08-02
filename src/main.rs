@@ -20,6 +20,7 @@ mod dir_work;
 mod singlethread_crawler;
 mod threaded_scaled_crawler;
 
+use async_std::path::Path as AsyncPath;
 use dir_work::r#async::AsyncDirWork;
 use dir_work::sync::DirWork;
 use std::io::{self, Write};
@@ -31,7 +32,11 @@ trait Crawler {
 }
 
 trait AsyncCrawler {
-    fn crawl<F: Fn(AsyncDirWork) + Send + Clone + 'static>(self, path: &std::path::Path, f: F);
+    fn crawl<F: Fn(AsyncDirWork) + Send + Sync + Clone + 'static>(
+        self,
+        path: &std::path::Path,
+        f: F,
+    );
 }
 
 fn main() {
@@ -59,22 +64,33 @@ fn main() {
         write_path(stdout, &work.into_pathbuf());
     };
 
-    // let async_crawler = async_scaled_crawler::make_crawler(thread_count);
-    // async_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
+    let async_action = |work: AsyncDirWork| {
+        let stdout = io::BufWriter::new(io::stdout());
+        write_path_async(stdout, &work.into_pathbuf());
+    };
 
     if thread_count > 1 {
-        let threaded_crawler = threaded_scaled_crawler::make_crawler(thread_count);
-        threaded_crawler.crawl(&std::path::PathBuf::from(dir), action);
+        // let threaded_crawler = threaded_scaled_crawler::make_crawler(thread_count);
+        // threaded_crawler.crawl(&std::path::PathBuf::from(dir), action);
+
+        let async_crawler = async_scaled_crawler::make_crawler(thread_count);
+        async_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
+
+    // let async_recursive_crawler = async_scaled_crawler::make_crawler(thread_count);
+    // async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
     } else {
         let singlethread_crawler = singlethread_crawler::make_crawler();
         singlethread_crawler.crawl(&std::path::PathBuf::from(dir), action);
     }
-
-    // let async_recursive_crawler = async_scaled_crawler::make_crawler(thread_count);
-    // async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
 }
 
 fn write_path<W: Write>(mut wtr: W, path: &Path) {
+    use std::os::unix::ffi::OsStrExt;
+    wtr.write(path.as_os_str().as_bytes()).unwrap();
+    wtr.write(b"\n").unwrap();
+}
+
+fn write_path_async<W: Write>(mut wtr: W, path: &AsyncPath) {
     use std::os::unix::ffi::OsStrExt;
     wtr.write(path.as_os_str().as_bytes()).unwrap();
     wtr.write(b"\n").unwrap();
