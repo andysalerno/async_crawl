@@ -103,10 +103,9 @@ impl<F: Fn(DirWork)> Worker<F> {
 
         while let Some(dir_child) = dir_children.next() {
             // TODO: try locking once around the loop?  What does BurntSushi know that I don't...
-            self.stack
-                .lock()
-                .unwrap()
-                .push(DirWork::Entry(dir_child.unwrap()));
+            if let Ok(dir_child) = dir_child {
+                self.stack.lock().unwrap().push(DirWork::Entry(dir_child));
+            }
         }
 
         Ok(())

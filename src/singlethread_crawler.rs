@@ -45,7 +45,9 @@ impl Worker {
         let mut dir_children = std::fs::read_dir(work.into_pathbuf())?;
 
         while let Some(dir_child) = dir_children.next() {
-            self.stack.push(DirWork::Entry(dir_child.unwrap()));
+            if let Ok(dir_child) = dir_child {
+                self.stack.push(DirWork::Entry(dir_child));
+            }
         }
 
         Ok(())
