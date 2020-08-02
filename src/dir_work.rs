@@ -17,14 +17,14 @@ pub(crate) mod sync {
 
         pub(crate) fn is_dir(&self) -> bool {
             match self {
-                DirWork::Entry(e) => e.metadata().unwrap().is_dir(),
+                DirWork::Entry(e) => e.metadata().and_then(|m| Ok(m.is_dir())).unwrap_or(false),
                 DirWork::Path(path) => path.is_dir(),
             }
         }
 
         pub(crate) fn is_file(&self) -> bool {
             match self {
-                DirWork::Entry(e) => e.metadata().unwrap().is_file(),
+                DirWork::Entry(e) => e.metadata().and_then(|m| Ok(m.is_file())).unwrap_or(false),
                 DirWork::Path(path) => path.is_file(),
             }
         }

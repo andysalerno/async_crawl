@@ -88,18 +88,18 @@ impl<F: Fn(DirWork)> Worker<F> {
         }
     }
 
-    fn run_one(&self, work: DirWork) {
+    fn run_one(&self, work: DirWork) -> Result<(), Box<std::io::Error>> {
         if work.is_file() {
             (self.f)(work);
-            return;
+            return Ok(());
         }
 
         if !work.is_dir() {
-            return;
+            return Ok(());
         }
 
         // it's a dir, so we must read it and push its children as new work
-        let mut dir_children = std::fs::read_dir(work.into_pathbuf()).unwrap();
+        let mut dir_children = std::fs::read_dir(work.into_pathbuf())?;
 
         while let Some(dir_child) = dir_children.next() {
             // TODO: try locking once around the loop?  What does BurntSushi know that I don't...
@@ -108,5 +108,7 @@ impl<F: Fn(DirWork)> Worker<F> {
                 .unwrap()
                 .push(DirWork::Entry(dir_child.unwrap()));
         }
+
+        Ok(())
     }
 }
