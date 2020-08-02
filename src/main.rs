@@ -25,7 +25,6 @@ use dir_work::r#async::AsyncDirWork;
 use dir_work::sync::DirWork;
 use std::io::{self, Write};
 use std::path::Path;
-use std::thread;
 
 trait Crawler {
     fn crawl<F: Fn(DirWork) + Send + Clone + 'static>(self, path: &std::path::Path, f: F);
