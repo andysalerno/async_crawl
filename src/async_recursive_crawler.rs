@@ -12,12 +12,13 @@ pub(crate) fn make_crawler() -> impl AsyncCrawler {
 
 struct RecursiveCrawlerManager;
 
-struct RecursiveCrawler {
+struct RecursiveCrawler<F: Fn(AsyncDirWork)> {
     wait_pool: Sender<async_std::task::JoinHandle<()>>,
+    f: F,
 }
 
 impl AsyncCrawler for RecursiveCrawlerManager {
-    fn crawl<F: Fn(AsyncDirWork)>(self, path: &std::path::Path, f: F) {
+    fn crawl<F: Fn(AsyncDirWork) + Clone + Send + 'static>(self, path: &std::path::Path, f: F) {
         use async_std::task;
 
         let path: async_std::path::PathBuf = path.into();
@@ -28,30 +29,26 @@ impl AsyncCrawler for RecursiveCrawlerManager {
             let s_clone = s.clone();
 
             s.send(async_std::task::spawn(async move {
-                let crawler = RecursiveCrawler::new(s_clone);
-                crawler.handle_dir(path).await;
+                let crawler = RecursiveCrawler::new(s_clone, f.clone());
+                crawler.handle_work(path).await;
             }))
             .await
             .expect("task failed.");
 
-            while let Ok(joiner) = r.try_recv() {
-                joiner.await;
+            loop {
+                r.recv().await;
             }
         });
     }
 }
 
-impl RecursiveCrawler {
-    fn new(wait_pool: Sender<async_std::task::JoinHandle<()>>) -> Self {
-        Self { wait_pool }
+impl<F: Fn(AsyncDirWork) + Clone + Send + 'static> RecursiveCrawler<F> {
+    fn new(wait_pool: Sender<async_std::task::JoinHandle<()>>, f: F) -> Self {
+        Self { wait_pool, f }
     }
 
-    async fn handle_file(&self, path: &Path) {
-        // println!("{:?}", path);
-    }
-
-    fn handle_dir(self, path: PathBuf) -> Pin<Box<dyn Future<Output = ()> + Send>> {
-        let result = Box::pin(async move {
+    fn handle_work(self, path: PathBuf) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+        Box::pin(async move {
             let is_sym = path
                 .symlink_metadata()
                 .await
@@ -60,9 +57,15 @@ impl RecursiveCrawler {
                 .is_symlink();
 
             if is_sym || !path.is_dir().await {
-                return self.handle_file(&path).await;
+                (self.f)(AsyncDirWork::Path(path));
+            } else {
+                self.handle_dir(path).await
             }
+        })
+    }
 
+    fn handle_dir(self, path: PathBuf) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+        Box::pin(async move {
             let mut dir_children = {
                 if let Ok(children) = async_std::fs::read_dir(path).await {
                     children
@@ -74,21 +77,21 @@ impl RecursiveCrawler {
             while let Some(dir_child) = dir_children.next().await {
                 let dir_child = dir_child.expect("Failed to make dir child.").path();
 
+                let f = self.f.clone();
+
                 let pool_copy = self.wait_pool.clone();
 
                 self.wait_pool
                     .send(async_std::task::spawn(async move {
                         // let crawler = Crawler::new(matcher, printer, buf_pool);
                         // crawler.handle_file(&dir_child).await;
-                        let crawler = RecursiveCrawler::new(pool_copy);
-                        crawler.handle_dir(dir_child).await;
+                        let crawler = RecursiveCrawler::new(pool_copy, f.clone());
+                        crawler.handle_work(dir_child).await;
                     }))
                     .await
                     .expect("failed sending task to pool.");
             }
-        });
-
-        return result;
+        })
     }
 }
 

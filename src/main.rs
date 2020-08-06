@@ -63,7 +63,7 @@ fn main() {
     let action = move |work: DirWork| {
         // let stdout = io::BufWriter::new(io::stdout());
         // write_path(stdout, &work.into_pathbuf());
-        tx.send(work).expect("send failed.");
+        tx.send(work).expect("send to printer");
     };
 
     // let action = |work: DirWork| {
@@ -77,20 +77,20 @@ fn main() {
     };
 
     if thread_count > 1 {
-        let threaded_crawler = threaded_scaled_crawler::make_crawler(thread_count);
-        threaded_crawler.crawl(&std::path::PathBuf::from(dir), action);
+        // let threaded_crawler = threaded_scaled_crawler::make_crawler(thread_count);
+        // threaded_crawler.crawl(&std::path::PathBuf::from(dir), action);
 
-    // let async_crawler = async_scaled_crawler::make_crawler(thread_count);
-    // async_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
+        // let async_crawler = async_scaled_crawler::make_crawler(thread_count);
+        // async_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
 
-    // let async_recursive_crawler = async_scaled_crawler::make_crawler(thread_count);
-    // async_recursive_crawler.crawl(&std::path::PathBuf::from("/home/andy/"), action);
+        let async_recursive_crawler = async_recursive_crawler::make_crawler();
+        async_recursive_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
     } else {
         let singlethread_crawler = singlethread_crawler::make_crawler();
         singlethread_crawler.crawl(&std::path::PathBuf::from(dir), action);
     }
 
-    stdout_thread.join();
+    stdout_thread.join().expect("join stdout thread");
 }
 
 fn write_path<W: Write>(mut wtr: W, path: &Path) {
