@@ -35,8 +35,8 @@ impl AsyncCrawler for RecursiveCrawlerManager {
             .await
             .expect("task failed.");
 
-            loop {
-                r.recv().await;
+            while let Ok(x) = r.try_recv() {
+                x.await;
             }
         });
     }

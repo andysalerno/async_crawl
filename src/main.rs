@@ -71,11 +71,11 @@ fn main() {
             };
 
             if thread_count > 1 {
-                let async_recursive_crawler = async_recursive_crawler::make_crawler();
-                async_recursive_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
-            } else {
                 let async_crawler = async_scaled_crawler::make_crawler(thread_count);
                 async_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
+            } else {
+                let async_recursive_crawler = async_recursive_crawler::make_crawler();
+                async_recursive_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
             }
 
             stdout_thread.join().expect("join stdout thread");
