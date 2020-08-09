@@ -43,10 +43,10 @@ impl Worker {
         }
 
         // it's a dir, so we must read it and push its children as new work
-        let mut dir_children = std::fs::read_dir(work.into_pathbuf())?;
+        let dir_children = std::fs::read_dir(work.into_pathbuf())?;
 
-        while let Some(dir_child) = dir_children.next() {
-            if let Ok(dir_child) = dir_child {
+        for child in dir_children {
+            if let Ok(dir_child) = child {
                 self.stack.push(DirWork::Entry(dir_child));
             }
         }

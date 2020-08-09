@@ -68,40 +68,6 @@ impl<F: Fn(AsyncDirWork)> Worker<F> {
         }
     }
 
-    // fn run(self) {
-    //     let mut is_active = true;
-
-    //     loop {
-    //         let work = self.stack.lock().unwrap().pop();
-
-    //         if work.is_none() {
-    //             let all_idle = if !is_active {
-    //                 // We're already idle, no need to update the count
-    //                 self.active_count.load(Ordering::SeqCst) == 0
-    //             } else {
-    //                 // We just became idle -- need to update the idlers count.
-    //                 self.active_count.fetch_sub(1, Ordering::SeqCst) == 1
-    //             };
-
-    //             is_active = false;
-
-    //             if all_idle {
-    //                 return;
-    //             }
-
-    //             std::thread::yield_now();
-    //             continue;
-    //         } else if !is_active {
-    //             // We were idle, but no longer --
-    //             // update the global count
-    //             self.active_count.fetch_add(1, Ordering::SeqCst);
-    //             is_active = true;
-    //         }
-
-    //         self.run_one(work.unwrap());
-    //     }
-    // }
-
     async fn run(self) {
         let mut is_active = true;
 

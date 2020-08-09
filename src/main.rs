@@ -65,8 +65,6 @@ fn main() {
             });
 
             let async_action = move |work: AsyncDirWork| {
-                // let stdout = io::BufWriter::new(io::stdout());
-                // write_path_async(stdout, &work.into_pathbuf());
                 tx.send(work).expect("send to printer");
             };
 
@@ -91,8 +89,6 @@ fn main() {
             });
 
             let action = move |work: DirWork| {
-                // let stdout = io::BufWriter::new(io::stdout());
-                // write_path(stdout, &work.into_pathbuf());
                 tx.send(work).expect("send to printer");
             };
 
