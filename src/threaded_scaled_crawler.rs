@@ -1,3 +1,5 @@
+//! An implementation of Crawler using one or more threads.
+
 use crate::dir_work::sync::DirWork;
 use crate::Crawler;
 use std::sync::atomic::AtomicUsize;

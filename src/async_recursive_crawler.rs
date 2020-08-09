@@ -1,3 +1,5 @@
+//! An async implementation of a Crawler that recursively spawns more tasks as it crawls.
+
 use crate::dir_work::r#async::AsyncDirWork;
 use crate::AsyncCrawler;
 use async_channel::Sender;

@@ -1,3 +1,5 @@
+//! An async implementation of a Crawler that spawns a fixed number of concurrent tasks, like threads, as it crawls.
+
 use crate::dir_work::r#async::AsyncDirWork;
 use crate::AsyncCrawler;
 use async_std::stream::StreamExt;

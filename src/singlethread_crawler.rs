@@ -1,3 +1,5 @@
+//! An implementation of Crawler using a single thread.
+
 use crate::dir_work::sync::DirWork;
 use crate::Crawler;
 use std::path::PathBuf;
@@ -7,7 +9,7 @@ pub(crate) fn make_crawler() -> impl Crawler {
 }
 
 impl Crawler for Worker {
-    fn crawl<T: Fn(DirWork) + Send + Clone + 'static>(self, path: &std::path::Path, f: T) {
+    fn crawl<T: Fn(DirWork)>(self, path: &std::path::Path, f: T) {
         self.run(path.into(), f);
     }
 }
@@ -23,7 +25,7 @@ impl Worker {
         Worker { stack: vec![] }
     }
 
-    fn run<F: Fn(DirWork) + Clone>(mut self, path: PathBuf, f: F) {
+    fn run<F: Fn(DirWork)>(mut self, path: PathBuf, f: F) {
         self.stack.push(DirWork::Path(path));
 
         while let Some(work) = self.stack.pop() {
