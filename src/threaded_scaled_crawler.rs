@@ -6,7 +6,8 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
-pub(crate) fn make_crawler(thread_count: usize) -> impl Crawler {
+/// Creates the Crawler with the provided count of worker threads.
+pub fn make_crawler(thread_count: usize) -> impl Crawler {
     WorkerManager { thread_count }
 }
 

@@ -4,7 +4,8 @@ use crate::dir_work::sync::DirWork;
 use crate::Crawler;
 use std::path::PathBuf;
 
-pub(crate) fn make_crawler() -> impl Crawler {
+/// Creates the Crawler.
+pub fn make_crawler() -> impl Crawler {
     Worker::new()
 }
 

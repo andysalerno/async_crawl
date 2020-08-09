@@ -7,7 +7,8 @@ use async_std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-pub(crate) fn make_crawler(task_count: usize) -> impl AsyncCrawler {
+/// Creates the AsyncCrawler with the provided count of concurrent tasks.
+pub fn make_crawler(task_count: usize) -> impl AsyncCrawler {
     WorkerManager { task_count }
 }
 

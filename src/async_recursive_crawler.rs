@@ -8,7 +8,8 @@ use async_std::stream::StreamExt;
 use std::future::Future;
 use std::pin::Pin;
 
-pub(crate) fn make_crawler() -> impl AsyncCrawler {
+/// Creates the recursive AsyncCrawler.
+pub fn make_crawler() -> impl AsyncCrawler {
     RecursiveCrawlerManager
 }
 
