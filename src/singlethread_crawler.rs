@@ -27,7 +27,8 @@ impl Worker {
         self.stack.push(DirWork::Path(path));
 
         while let Some(work) = self.stack.pop() {
-            self.run_one(work, &f);
+            self.run_one(work, &f)
+                .unwrap_or_else(|_| { /* Fail silently */ })
         }
     }
 

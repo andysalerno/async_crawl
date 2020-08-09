@@ -84,7 +84,8 @@ impl<F: Fn(DirWork)> Worker<F> {
                 is_active = true;
             }
 
-            self.run_one(work.unwrap());
+            self.run_one(work.unwrap())
+                .unwrap_or_else(|_| { /* Fail silently */ });
         }
     }
 

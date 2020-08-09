@@ -1,7 +1,7 @@
 use crate::dir_work::r#async::AsyncDirWork;
 use crate::AsyncCrawler;
 use async_channel::Sender;
-use async_std::path::{Path, PathBuf};
+use async_std::path::PathBuf;
 use async_std::stream::StreamExt;
 use std::future::Future;
 use std::pin::Pin;

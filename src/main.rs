@@ -21,7 +21,7 @@ mod singlethread_crawler;
 mod threaded_scaled_crawler;
 
 use async_std::path::Path as AsyncPath;
-use crossbeam_channel::{bounded, unbounded};
+use crossbeam_channel::bounded;
 use dir_work::r#async::AsyncDirWork;
 use dir_work::sync::DirWork;
 use std::io::{self, Write};

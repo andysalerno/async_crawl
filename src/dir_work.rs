@@ -1,6 +1,6 @@
 pub(crate) mod sync {
     use std::fs::DirEntry;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     pub(crate) enum DirWork {
         Entry(DirEntry),
@@ -29,6 +29,7 @@ pub(crate) mod sync {
             }
         }
 
+        #[allow(dead_code)]
         pub(crate) fn is_symlink(&self) -> bool {
             match self {
                 DirWork::Entry(e) => e.file_type().unwrap().is_symlink(),
