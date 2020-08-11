@@ -26,6 +26,7 @@ pub mod threaded_scaled_crawler;
 use async_trait::async_trait;
 use dir_work::r#async::AsyncDirWork;
 use dir_work::sync::DirWork;
+use std::future::Future;
 
 /// A trait that describes a directory crawler,
 /// which accepts a closure that will be triggered on each entry.
@@ -41,9 +42,14 @@ pub trait Crawler {
 pub trait AsyncCrawler {
     /// Crawls the directory starting with the provided path as the root,
     /// invoking the closure on each entry.
-    async fn crawl<F: Fn(AsyncDirWork) + Send + Sync + Clone + 'static>(
+    async fn crawl<F, Fut, T>(
+        // async fn crawl<F: Fn(AsyncDirWork) + Send + Sync + Clone + 'static>(
         self,
         path: &std::path::Path,
+        // f: impl Send + Sync + Clone + 'static + Fn(AsyncDirWork) -> F,
         f: F,
-    );
+    ) where
+        T: 'static,
+        Fut: Future<Output = T> + 'static,
+        F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut;
 }

@@ -13,7 +13,11 @@ pub fn make_crawler(task_count: usize) -> impl AsyncCrawler {
     WorkerManager { task_count }
 }
 
-struct Worker<F: Fn(AsyncDirWork)> {
+struct Worker<F, Fut, T>
+where
+    Fut: std::future::Future<Output = T>,
+    F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
+{
     stack: SharedStack<AsyncDirWork>,
     active_count: Arc<AtomicUsize>,
     f: F,
@@ -30,11 +34,17 @@ struct WorkerManager {
 
 #[async_trait]
 impl AsyncCrawler for WorkerManager {
-    async fn crawl<F: Fn(AsyncDirWork) + Clone + Send + Sync + 'static>(
+    async fn crawl<F, Fut, T>(
+        // async fn crawl<F: Fn(AsyncDirWork) + Send + Sync + Clone + 'static>(
         self,
         path: &std::path::Path,
+        // f: impl Send + Sync + Clone + 'static + Fn(AsyncDirWork) -> F,
         f: F,
-    ) {
+    ) where
+        Fut: std::future::Future<Output = T> + 'static,
+        F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
+        T: 'static,
+    {
         use async_std::task;
 
         let mut handles = vec![];
@@ -46,7 +56,7 @@ impl AsyncCrawler for WorkerManager {
         for _ in 0..self.task_count {
             let worker = Worker::new(stack.clone(), active_count.clone(), f.clone());
 
-            let task = task::spawn(async {
+            let task = task::spawn(async move {
                 worker.run().await;
             });
 
@@ -62,7 +72,11 @@ impl AsyncCrawler for WorkerManager {
 }
 
 // TODO: try using all DirEntry instead of Path, may have better perf
-impl<F: Fn(AsyncDirWork)> Worker<F> {
+impl<F, Fut, T> Worker<F, Fut, T>
+where
+    Fut: std::future::Future<Output = T>,
+    F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
+{
     fn new(stack: SharedStack<AsyncDirWork>, active_count: Arc<AtomicUsize>, f: F) -> Self {
         Self {
             stack,
@@ -103,7 +117,7 @@ impl<F: Fn(AsyncDirWork)> Worker<F> {
 
     async fn run_one(&self, work: AsyncDirWork) {
         if work.is_file().await {
-            (self.f)(work);
+            (self.f.clone())(work);
             return;
         }
 

@@ -33,7 +33,7 @@ fn run() {
                 }
             });
 
-            let async_action = move |work: AsyncDirWork| {
+            let async_action = move |work: AsyncDirWork| async move {
                 tx.send(work).expect("send to printer");
             };
 

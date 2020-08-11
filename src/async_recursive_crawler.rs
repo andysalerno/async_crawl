@@ -23,27 +23,40 @@ struct RecursiveCrawler<F: Fn(AsyncDirWork)> {
 
 #[async_trait]
 impl AsyncCrawler for RecursiveCrawlerManager {
-    async fn crawl<F: Fn(AsyncDirWork) + Clone + Send + 'static>(
+    // async fn crawlz<F: Fn(AsyncDirWork) + Clone + Send + 'static>(
+    //     self,
+    //     path: &std::path::Path,
+    //     f: F,
+    // ) {
+    //     let path: async_std::path::PathBuf = path.into();
+
+    //     let (s, r) = async_channel::unbounded();
+
+    //     let s_clone = s.clone();
+
+    //     s.send(async_std::task::spawn(async move {
+    //         let crawler = RecursiveCrawler::new(s_clone, f.clone());
+    //         crawler.handle_work(path).await;
+    //     }))
+    //     .await
+    //     .expect("task failed.");
+
+    //     while let Ok(x) = r.try_recv() {
+    //         x.await;
+    //     }
+    // }
+
+    async fn crawl<F, Fut, T>(
+        // async fn crawl<F: Fn(AsyncDirWork) + Send + Sync + Clone + 'static>(
         self,
         path: &std::path::Path,
+        // f: impl Send + Sync + Clone + 'static + Fn(AsyncDirWork) -> F,
         f: F,
-    ) {
-        let path: async_std::path::PathBuf = path.into();
-
-        let (s, r) = async_channel::unbounded();
-
-        let s_clone = s.clone();
-
-        s.send(async_std::task::spawn(async move {
-            let crawler = RecursiveCrawler::new(s_clone, f.clone());
-            crawler.handle_work(path).await;
-        }))
-        .await
-        .expect("task failed.");
-
-        while let Ok(x) = r.try_recv() {
-            x.await;
-        }
+    ) where
+        Fut: Future<Output = T>,
+        F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
+    {
+        todo!()
     }
 }
 
