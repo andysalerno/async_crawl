@@ -39,10 +39,18 @@ fn run() {
 
             if thread_count > 1 {
                 let async_crawler = crate::async_scaled_crawler::make_crawler(thread_count);
-                async_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
+                async_std::task::block_on(async {
+                    async_crawler
+                        .crawl(&std::path::PathBuf::from(dir), async_action)
+                        .await;
+                });
             } else {
                 let async_recursive_crawler = crate::async_recursive_crawler::make_crawler();
-                async_recursive_crawler.crawl(&std::path::PathBuf::from(dir), async_action);
+                async_std::task::block_on(async {
+                    async_recursive_crawler
+                        .crawl(&std::path::PathBuf::from(dir), async_action)
+                        .await;
+                });
             }
 
             stdout_thread.join().expect("join stdout thread");

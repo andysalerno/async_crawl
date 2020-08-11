@@ -4,6 +4,7 @@ use crate::dir_work::r#async::AsyncDirWork;
 use crate::AsyncCrawler;
 use async_std::stream::StreamExt;
 use async_std::sync::{Arc, Mutex};
+use async_trait::async_trait;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
@@ -27,37 +28,36 @@ struct WorkerManager {
     task_count: usize,
 }
 
+#[async_trait]
 impl AsyncCrawler for WorkerManager {
-    fn crawl<F: Fn(AsyncDirWork) + Clone + Send + Sync + 'static>(
+    async fn crawl<F: Fn(AsyncDirWork) + Clone + Send + Sync + 'static>(
         self,
         path: &std::path::Path,
         f: F,
     ) {
         use async_std::task;
 
-        task::block_on(async {
-            let mut handles = vec![];
+        let mut handles = vec![];
 
-            let active_count = Arc::new(AtomicUsize::new(self.task_count));
-            let stack = make_stack();
-            stack.lock().await.push(AsyncDirWork::Path(path.into()));
+        let active_count = Arc::new(AtomicUsize::new(self.task_count));
+        let stack = make_stack();
+        stack.lock().await.push(AsyncDirWork::Path(path.into()));
 
-            for _ in 0..self.task_count {
-                let worker = Worker::new(stack.clone(), active_count.clone(), f.clone());
+        for _ in 0..self.task_count {
+            let worker = Worker::new(stack.clone(), active_count.clone(), f.clone());
 
-                let task = task::spawn(async {
-                    worker.run().await;
-                });
+            let task = task::spawn(async {
+                worker.run().await;
+            });
 
-                handles.push(task);
-            }
+            handles.push(task);
+        }
 
-            let mut handles = handles.into_iter();
+        let mut handles = handles.into_iter();
 
-            while let Some(handle) = handles.next() {
-                handle.await;
-            }
-        });
+        while let Some(handle) = handles.next() {
+            handle.await;
+        }
     }
 }
 

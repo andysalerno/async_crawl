@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 crossbeam-channel = "0.4.3"
+async-trait = "0.1.36"
 
 [dependencies.async-std]
 version = "1.6"
