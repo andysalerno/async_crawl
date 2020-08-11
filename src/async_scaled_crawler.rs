@@ -15,7 +15,7 @@ pub fn make_crawler(task_count: usize) -> impl AsyncCrawler {
 
 struct Worker<F, Fut, T>
 where
-    Fut: std::future::Future<Output = T>,
+    Fut: std::future::Future<Output = T> + Send,
     F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
 {
     stack: SharedStack<AsyncDirWork>,
@@ -41,7 +41,7 @@ impl AsyncCrawler for WorkerManager {
         // f: impl Send + Sync + Clone + 'static + Fn(AsyncDirWork) -> F,
         f: F,
     ) where
-        Fut: std::future::Future<Output = T> + 'static,
+        Fut: std::future::Future<Output = T> + Send + 'static,
         F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
         T: 'static,
     {
@@ -74,7 +74,7 @@ impl AsyncCrawler for WorkerManager {
 // TODO: try using all DirEntry instead of Path, may have better perf
 impl<F, Fut, T> Worker<F, Fut, T>
 where
-    Fut: std::future::Future<Output = T>,
+    Fut: std::future::Future<Output = T> + Send,
     F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
 {
     fn new(stack: SharedStack<AsyncDirWork>, active_count: Arc<AtomicUsize>, f: F) -> Self {
@@ -117,7 +117,7 @@ where
 
     async fn run_one(&self, work: AsyncDirWork) {
         if work.is_file().await {
-            (self.f.clone())(work);
+            (self.f.clone())(work).await;
             return;
         }
 

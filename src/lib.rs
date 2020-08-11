@@ -50,6 +50,6 @@ pub trait AsyncCrawler {
         f: F,
     ) where
         T: 'static,
-        Fut: Future<Output = T> + 'static,
+        Fut: Future<Output = T> + Send + 'static,
         F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut;
 }
