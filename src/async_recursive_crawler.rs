@@ -16,66 +16,76 @@ pub fn make_crawler() -> impl AsyncCrawler {
 
 struct RecursiveCrawlerManager;
 
-struct RecursiveCrawler<F: Fn(AsyncDirWork)> {
+struct RecursiveCrawler<F, Fut, T>
+where
+    Fut: Future<Output = T> + 'static,
+    F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
+{
     wait_pool: Sender<async_std::task::JoinHandle<()>>,
     f: F,
 }
 
 #[async_trait]
 impl AsyncCrawler for RecursiveCrawlerManager {
-    // async fn crawlz<F: Fn(AsyncDirWork) + Clone + Send + 'static>(
-    //     self,
-    //     path: &std::path::Path,
-    //     f: F,
-    // ) {
-    //     let path: async_std::path::PathBuf = path.into();
-
-    //     let (s, r) = async_channel::unbounded();
-
-    //     let s_clone = s.clone();
-
-    //     s.send(async_std::task::spawn(async move {
-    //         let crawler = RecursiveCrawler::new(s_clone, f.clone());
-    //         crawler.handle_work(path).await;
-    //     }))
-    //     .await
-    //     .expect("task failed.");
-
-    //     while let Ok(x) = r.try_recv() {
-    //         x.await;
-    //     }
-    // }
-
-    async fn crawl<F, Fut, T>(
-        // async fn crawl<F: Fn(AsyncDirWork) + Send + Sync + Clone + 'static>(
-        self,
-        path: &std::path::Path,
-        // f: impl Send + Sync + Clone + 'static + Fn(AsyncDirWork) -> F,
-        f: F,
-    ) where
-        Fut: Future<Output = T>,
+    async fn crawl<F, Fut, T>(self, path: &std::path::Path, f: F)
+    where
+        T: 'static,
+        Fut: Future<Output = T> + 'static + Send,
         F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
     {
-        todo!()
+        use async_channel::TryRecvError;
+
+        let path: async_std::path::PathBuf = path.into();
+
+        // let (s, r) = async_channel::bounded(128);
+        let (s, r) = async_channel::unbounded();
+
+        let s_clone = s.clone();
+
+        s.send(async_std::task::spawn(async move {
+            let crawler = RecursiveCrawler::new(s_clone, f);
+            crawler.handle_work(path).await;
+        }))
+        .await
+        .expect("task failed.");
+
+        drop(s);
+
+        loop {
+            match r.try_recv() {
+                Ok(x) => x.await,
+                Err(TryRecvError::Empty) => async_std::task::yield_now().await,
+                _ => break,
+            }
+        }
     }
 }
 
-impl<F: Fn(AsyncDirWork) + Clone + Send + 'static> RecursiveCrawler<F> {
+impl<F, Fut, T> RecursiveCrawler<F, Fut, T>
+where
+    T: 'static,
+    Fut: Future<Output = T> + 'static + Send,
+    F: Send + Sync + Clone + 'static + FnOnce(AsyncDirWork) -> Fut,
+{
     fn new(wait_pool: Sender<async_std::task::JoinHandle<()>>, f: F) -> Self {
         Self { wait_pool, f }
     }
 
     fn handle_work(self, path: PathBuf) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         Box::pin(async move {
-            let is_sym = path
-                .symlink_metadata()
-                .await
-                .unwrap()
-                .file_type()
-                .is_symlink();
+            // let is_sym = path
+            //     .symlink_metadata()
+            //     .await
+            //     .unwrap()
+            //     .file_type()
+            //     .is_symlink();
 
-            if is_sym || !path.is_dir().await {
-                (self.f)(AsyncDirWork::Path(path));
+            // if is_sym {
+            //     return;
+            // }
+
+            if path.is_file().await {
+                (self.f)(AsyncDirWork::Path(path)).await;
             } else {
                 self.handle_dir(path).await
             }
@@ -101,9 +111,7 @@ impl<F: Fn(AsyncDirWork) + Clone + Send + 'static> RecursiveCrawler<F> {
 
                 self.wait_pool
                     .send(async_std::task::spawn(async move {
-                        // let crawler = Crawler::new(matcher, printer, buf_pool);
-                        // crawler.handle_file(&dir_child).await;
-                        let crawler = RecursiveCrawler::new(pool_copy, f.clone());
+                        let crawler = RecursiveCrawler::new(pool_copy, f);
                         crawler.handle_work(dir_child).await;
                     }))
                     .await
